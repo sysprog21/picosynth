@@ -1,0 +1,30 @@
+# Jingle Bells - Chorus
+# Format: NOTE BEATS (4=quarter, 8=eighth, 2=half, 1=whole)
+
+E4 4
+E4 4
+E4 2
+E4 4
+E4 4
+E4 2
+E4 4
+G4 4
+C4 4
+D4 4
+E4 1
+
+F4 4
+F4 4
+F4 4
+F4 4
+F4 4
+E4 4
+E4 4
+E4 8
+E4 8
+E4 4
+D4 4
+D4 4
+E4 4
+D4 2
+G4 2

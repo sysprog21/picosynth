@@ -1,0 +1,56 @@
+# Twinkle Twinkle Little Star
+# Format: NOTE BEATS
+
+C4 4
+C4 4
+G4 4
+G4 4
+A4 4
+A4 4
+G4 2
+- 2
+
+F4 4
+F4 4
+E4 4
+E4 4
+D4 4
+D4 4
+C4 2
+- 2
+
+G4 4
+G4 4
+F4 4
+F4 4
+E4 4
+E4 4
+D4 2
+- 2
+
+G4 4
+G4 4
+F4 4
+F4 4
+E4 4
+E4 4
+D4 2
+- 2
+
+C4 4
+C4 4
+G4 4
+G4 4
+A4 4
+A4 4
+G4 2
+- 2
+
+F4 4
+F4 4
+E4 4
+E4 4
+D4 4
+D4 4
+C4 2
+- 2

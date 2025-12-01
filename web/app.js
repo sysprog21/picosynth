@@ -228,7 +228,7 @@ function loadMelody(text, name) {
 }
 
 /* Melody list - discovered from assets/melodies/ */
-const MELODY_PATH = '/assets/melodies/';
+const MELODY_PATH = 'assets/melodies/';
 const MELODIES = [
     { id: 'happy_birthday', name: 'Happy Birthday' },
     { id: 'twinkle', name: 'Twinkle' },

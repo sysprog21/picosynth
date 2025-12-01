@@ -39,7 +39,7 @@ WASM_FLAGS = -O2 -s WASM=1 \
 	-DSAMPLE_RATE=$(WASM_SAMPLE_RATE) \
 	-I include -I .
 
-.PHONY: all clean distclean indent list-melodies wasm wasm-clean serve tools check
+.PHONY: all clean distclean indent list-melodies wasm wasm-clean serve tools check copy-melodies
 
 all: $(TARGET)
 
@@ -74,14 +74,22 @@ clean:
 tools: $(MIDI2C)
 
 # WebAssembly build
-wasm: $(WASM_OUT)
+wasm: $(WASM_OUT) copy-melodies
 
 $(WASM_OUT): $(WASM_SRCS) $(HDRS)
 	$(EMCC) $(WASM_FLAGS) $(WASM_SRCS) -o $@
 	@echo "WebAssembly build complete: $(WASM_DIR)/"
 
+# Copy melody files to web directory for deployment
+copy-melodies:
+	@rm -rf $(WASM_DIR)/assets
+	@mkdir -p $(WASM_DIR)/assets
+	@cp -r assets/melodies $(WASM_DIR)/assets/
+	@echo "Copied melody files to $(WASM_DIR)/assets/melodies/"
+
 wasm-clean:
 	$(RM) $(WASM_DIR)/picosynth.js $(WASM_DIR)/picosynth.wasm
+	$(RM) -r $(WASM_DIR)/assets
 
 # Remove all generated files
 distclean: clean wasm-clean

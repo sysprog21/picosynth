@@ -1,0 +1,31 @@
+# Mary Had a Little Lamb
+# Format: NOTE BEATS (4=quarter, 2=half)
+
+E4 4
+D4 4
+C4 4
+D4 4
+E4 4
+E4 4
+E4 2
+
+D4 4
+D4 4
+D4 2
+E4 4
+G4 4
+G4 2
+
+E4 4
+D4 4
+C4 4
+D4 4
+E4 4
+E4 4
+E4 4
+E4 4
+D4 4
+D4 4
+E4 4
+D4 4
+C4 2
