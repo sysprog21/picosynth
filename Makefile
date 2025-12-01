@@ -1,6 +1,6 @@
 CC ?= gcc
 CFLAGS = -Wall -Wextra -Wconversion -I include -I .
-LDLIBS = -lm
+LDLIBS =
 
 SRCS = src/picosynth.c
 HDRS = include/picosynth.h

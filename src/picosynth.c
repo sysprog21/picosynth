@@ -1,6 +1,5 @@
 /* Lightweight software synthesizer */
 
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -241,7 +240,10 @@ void picosynth_note_off(picosynth_t *s, uint8_t voice)
 #define PICOSYNTH_ENV_RATE_FROM_MS(ms)                                    \
     (PICOSYNTH_MS(ms) > 0 ? (((int64_t) Q15_MAX << 4) / PICOSYNTH_MS(ms)) \
                           : ((int32_t) Q15_MAX << 4))
-#define PICOSYNTH_ENV_MIN_RATIO 1e-4
+#define PICOSYNTH_ENV_MIN_RATIO_Q15 \
+    ((q15_t) (((int64_t) Q15_MAX + 5000) / 10000)) /* ~1e-4 */
+#define PICOSYNTH_ENV_MAX_RATIO_Q15 \
+    ((q15_t) (((int64_t) Q15_MAX * 9999 + 5000) / 10000)) /* 0.9999 */
 /* Minimum release duration to avoid clicks when retriggering notes */
 #define PICOSYNTH_FAST_RELEASE_SAMPLES (SAMPLE_RATE / 100) /* ~10ms */
 
@@ -263,28 +265,65 @@ static const q15_t octave8_freq[NOTES_PER_OCTAVE] = {
     PICOSYNTH_HZ_TO_FREQ(7902.13), /* B8 */
 };
 
+/* Multiply Q1.15 values with 64-bit intermediate to preserve precision */
+static q15_t q15_mul(q15_t a, q15_t b)
+{
+    return (q15_t) (((int64_t) a * b) >> 15);
+}
+
+/* Fast exponentiation: compute base^exp in Q1.15 domain. */
+static q15_t pow_q15(q15_t base, uint32_t exp)
+{
+    int32_t result = Q15_MAX; /* 1.0 */
+    int32_t b = base;
+    while (exp) {
+        if (exp & 1u)
+            result = (int32_t) q15_mul((q15_t) result, (q15_t) b);
+        exp >>= 1;
+        if (exp)
+            b = (int32_t) q15_mul((q15_t) b, (q15_t) b);
+    }
+    return (q15_t) result;
+}
+
 /* Calculate exponential envelope multiplier for a given duration in samples
- * toward a target ratio relative to the starting value. */
-static q15_t env_calc_exp_coeff(uint32_t samples, double target_ratio)
+ * toward a target ratio relative to the starting value.
+ */
+static q15_t env_calc_exp_coeff(uint32_t samples, q15_t target_ratio)
 {
     if (samples < 10)
         return Q15_MAX >> 1; /* Very fast decay */
-    if (target_ratio < PICOSYNTH_ENV_MIN_RATIO)
-        target_ratio = PICOSYNTH_ENV_MIN_RATIO;
-    if (target_ratio > 0.9999)
-        target_ratio = 0.9999;
 
-    double coeff = exp(log(target_ratio) / (double) samples);
-    int32_t q = (int32_t) (coeff * (double) Q15_MAX + 0.5);
-    if (q < 0)
-        q = 0;
-    if (q > Q15_MAX)
-        q = Q15_MAX;
-    return (q15_t) q;
+    if (target_ratio < PICOSYNTH_ENV_MIN_RATIO_Q15)
+        target_ratio = PICOSYNTH_ENV_MIN_RATIO_Q15;
+    if (target_ratio > PICOSYNTH_ENV_MAX_RATIO_Q15)
+        target_ratio = PICOSYNTH_ENV_MAX_RATIO_Q15;
+
+    int32_t low = 0, high = Q15_MAX;
+    while (low + 1 < high) {
+        int32_t mid = (low + high) >> 1;
+        q15_t pow_mid = pow_q15((q15_t) mid, samples);
+        if (pow_mid > target_ratio)
+            high = mid;
+        else
+            low = mid;
+    }
+
+    /* Choose the closer bound */
+    q15_t pow_low = pow_q15((q15_t) low, samples);
+    q15_t pow_high = pow_q15((q15_t) high, samples);
+    int32_t diff_low = (int32_t) target_ratio - (int32_t) pow_low;
+    int32_t diff_high = (int32_t) pow_high - (int32_t) target_ratio;
+    if (diff_low < 0)
+        diff_low = -diff_low;
+    if (diff_high < 0)
+        diff_high = -diff_high;
+    return diff_low <= diff_high ? (q15_t) low : (q15_t) high;
 }
 
 /* Recalculate decay/release exponential coefficients to roughly match the
- * linear timing implied by the configured rates. */
+ * linear timing implied by the configured rates.
+ */
 static void env_update_exp_coeffs(picosynth_env_t *env)
 {
     int32_t sus_abs = env->sustain < 0 ? -env->sustain : env->sustain;
@@ -296,7 +335,7 @@ static void env_update_exp_coeffs(picosynth_env_t *env)
         env->decay > 0
             ? (decay_span + (uint32_t) env->decay - 1) / (uint32_t) env->decay
             : 1;
-    double target = (double) sus_level / (double) peak;
+    q15_t target = (q15_t) (((int64_t) sus_level << 15) / peak);
     env->decay_coeff = env_calc_exp_coeff(decay_samples, target);
 
     uint32_t release_samples =
@@ -306,7 +345,7 @@ static void env_update_exp_coeffs(picosynth_env_t *env)
     if (release_samples < PICOSYNTH_FAST_RELEASE_SAMPLES)
         release_samples = PICOSYNTH_FAST_RELEASE_SAMPLES;
     env->release_coeff =
-        env_calc_exp_coeff(release_samples, PICOSYNTH_ENV_MIN_RATIO);
+        env_calc_exp_coeff(release_samples, PICOSYNTH_ENV_MIN_RATIO_Q15);
 }
 
 q15_t picosynth_midi_to_freq(uint8_t note)
