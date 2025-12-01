@@ -79,10 +79,12 @@ typedef struct {
  * Use synth_init_env_ms().
  */
 typedef struct {
-    int32_t attack;  /* Ramp-up rate */
-    int32_t decay;   /* Ramp-down rate to sustain */
-    q15_t sustain;   /* Hold level (negative inverts output) */
-    int32_t release; /* Ramp-down rate after note-off */
+    int32_t attack;      /* Ramp-up rate */
+    int32_t decay;       /* Ramp-down rate to sustain */
+    q15_t sustain;       /* Hold level (negative inverts output) */
+    int32_t release;     /* Ramp-down rate after note-off */
+    q15_t decay_coeff;   /* Exponential multiplier for decay */
+    q15_t release_coeff; /* Exponential multiplier for release */
     /* Block processing state (computed at block boundaries) */
     int32_t block_rate;    /* Current per-sample rate */
     uint8_t block_counter; /* Samples until next rate computation */

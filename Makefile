@@ -1,5 +1,6 @@
 CC ?= gcc
 CFLAGS = -Wall -Wextra -Wconversion -I include -I .
+LDLIBS = # -lm
 
 SRCS = src/picosynth.c
 HDRS = include/picosynth.h
@@ -52,11 +53,11 @@ $(MELODY_HDR): $(MELODY_SRC) $(MIDI2C)
 	$(MIDI2C) $(MELODY_SRC) > $@
 
 $(TARGET): $(EXAMPLE_SRC) $(SRCS) $(HDRS) $(MELODY_HDR)
-	$(CC) $(CFLAGS) $(EXAMPLE_SRC) $(SRCS) -o $@
+	$(CC) $(CFLAGS) $(EXAMPLE_SRC) $(SRCS) -o $@ $(LDLIBS)
 
 # Build unit test runner
 $(TEST_TARGET): $(TEST_SRCS) $(SRCS) $(HDRS) $(TEST_DIR)/test.h
-	$(CC) $(CFLAGS) -I $(TEST_DIR) $(TEST_SRCS) $(SRCS) -o $@
+	$(CC) $(CFLAGS) -I $(TEST_DIR) $(TEST_SRCS) $(SRCS) -o $@ $(LDLIBS)
 
 # Run the example program
 run: $(TARGET)

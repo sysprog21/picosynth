@@ -1,5 +1,6 @@
 /* Lightweight software synthesizer */
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -240,6 +241,7 @@ void picosynth_note_off(picosynth_t *s, uint8_t voice)
 #define PICOSYNTH_ENV_RATE_FROM_MS(ms)                                    \
     (PICOSYNTH_MS(ms) > 0 ? (((int64_t) Q15_MAX << 4) / PICOSYNTH_MS(ms)) \
                           : ((int32_t) Q15_MAX << 4))
+#define PICOSYNTH_ENV_MIN_RATIO 1e-4
 
 /* Phase increments for octave 8; shift right for lower octaves */
 #define BASE_OCTAVE 8
@@ -258,6 +260,50 @@ static const q15_t octave8_freq[NOTES_PER_OCTAVE] = {
     PICOSYNTH_HZ_TO_FREQ(7458.62), /* A#8 */
     PICOSYNTH_HZ_TO_FREQ(7902.13), /* B8 */
 };
+
+/* Calculate exponential envelope multiplier for a given duration in samples
+ * toward a target ratio relative to the starting value. */
+static q15_t env_calc_exp_coeff(uint32_t samples, double target_ratio)
+{
+    if (samples < 10)
+        return Q15_MAX >> 1; /* Very fast decay */
+    if (target_ratio < PICOSYNTH_ENV_MIN_RATIO)
+        target_ratio = PICOSYNTH_ENV_MIN_RATIO;
+    if (target_ratio > 0.9999)
+        target_ratio = 0.9999;
+
+    double coeff = exp(log(target_ratio) / (double) samples);
+    int32_t q = (int32_t) (coeff * (double) Q15_MAX + 0.5);
+    if (q < 0)
+        q = 0;
+    if (q > Q15_MAX)
+        q = Q15_MAX;
+    return (q15_t) q;
+}
+
+/* Recalculate decay/release exponential coefficients to roughly match the
+ * linear timing implied by the configured rates. */
+static void env_update_exp_coeffs(picosynth_env_t *env)
+{
+    int32_t sus_abs = env->sustain < 0 ? -env->sustain : env->sustain;
+    uint32_t sus_level = (uint32_t) sus_abs << 4;
+    uint32_t peak = (uint32_t) Q15_MAX << 4;
+    uint32_t decay_span = peak > sus_level ? peak - sus_level : 1;
+
+    uint32_t decay_samples =
+        env->decay > 0
+            ? (decay_span + (uint32_t) env->decay - 1) / (uint32_t) env->decay
+            : 1;
+    double target = (double) sus_level / (double) peak;
+    env->decay_coeff = env_calc_exp_coeff(decay_samples, target);
+
+    uint32_t release_samples =
+        env->release > 0
+            ? (peak + (uint32_t) env->release - 1) / (uint32_t) env->release
+            : 1;
+    env->release_coeff =
+        env_calc_exp_coeff(release_samples, PICOSYNTH_ENV_MIN_RATIO);
+}
 
 q15_t picosynth_midi_to_freq(uint8_t note)
 {
@@ -301,6 +347,7 @@ void picosynth_init_env(picosynth_node_t *n,
     n->env.decay = decay;
     n->env.sustain = sustain;
     n->env.release = release;
+    env_update_exp_coeffs(&n->env);
 }
 
 void picosynth_init_env_ms(picosynth_node_t *n,
@@ -471,10 +518,10 @@ q15_t picosynth_process(picosynth_t *s)
                 if (n->env.block_counter == 0) {
                     n->env.block_counter = PICOSYNTH_BLOCK_SIZE;
                     if (!v->gate) {
-                        n->env.block_rate = -n->env.release;
+                        n->env.block_rate = -n->env.release; /* Informational */
                     } else if (((uint32_t) n->state) &
                                ENVELOPE_STATE_MODE_BIT) {
-                        n->env.block_rate = -n->env.decay;
+                        n->env.block_rate = -n->env.decay; /* Informational */
                     } else {
                         n->env.block_rate = n->env.attack;
                     }
@@ -483,20 +530,24 @@ q15_t picosynth_process(picosynth_t *s)
 
                 /* Apply rate */
                 int32_t val = n->state & ENVELOPE_STATE_VALUE_MASK;
-                val += n->env.block_rate;
-
                 if (v->gate) {
                     uint32_t mode =
                         ((uint32_t) n->state) & ENVELOPE_STATE_MODE_BIT;
                     if (mode) {
-                        /* Decay: clamp to sustain level */
                         q15_t sus_abs = n->env.sustain < 0 ? -n->env.sustain
                                                            : n->env.sustain;
                         int32_t sus_level = sus_abs << 4;
+                        int32_t delta = val - sus_level;
+                        /* Exponential decay of delta toward sustain */
+                        val =
+                            sus_level +
+                            (int32_t) (((int64_t) delta * n->env.decay_coeff) >>
+                                       15);
                         if (val < sus_level)
                             val = sus_level;
                     } else {
                         /* Attack: check for transition to decay */
+                        val += n->env.block_rate;
                         if (val >= (int32_t) Q15_MAX << 4) {
                             val = (int32_t) Q15_MAX << 4;
                             mode = ENVELOPE_STATE_MODE_BIT;
@@ -506,8 +557,10 @@ q15_t picosynth_process(picosynth_t *s)
                     }
                     n->state = (int32_t) (((uint32_t) val) | mode);
                 } else {
-                    /* Release: clamp to zero */
-                    if (val < 0)
+                    /* Exponential release */
+                    val = (int32_t) (((int64_t) val * n->env.release_coeff) >>
+                                     15);
+                    if (val < 16)
                         val = 0;
                     n->state = val;
                 }
