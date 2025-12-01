@@ -469,6 +469,9 @@ static q15_t soft_clip(int32_t x)
 
 q15_t picosynth_process(picosynth_t *s)
 {
+    if (!s)
+        return 0;
+
     int32_t out = 0;
 
     for (int vi = 0; vi < s->num_voices; vi++) {
@@ -518,9 +521,14 @@ q15_t picosynth_process(picosynth_t *s)
                 break;
             case PICOSYNTH_NODE_HP:
                 /* High-pass is the input signal minus the low-pass signal */
-                tmp[i] =
-                    (int32_t) (((int64_t) n->flt.accum * n->flt.coeff) >> 15);
-                tmp[i] = *n->flt.in - tmp[i];
+                if (n->flt.in) {
+                    tmp[i] =
+                        (int32_t) (((int64_t) n->flt.accum * n->flt.coeff) >>
+                                   15);
+                    tmp[i] = *n->flt.in - tmp[i];
+                } else {
+                    tmp[i] = 0;
+                }
                 break;
             case PICOSYNTH_NODE_MIX: {
                 int32_t sum = 0;
@@ -550,7 +558,8 @@ q15_t picosynth_process(picosynth_t *s)
 
             switch (n->type) {
             case PICOSYNTH_NODE_OSC:
-                n->state += *n->osc.freq;
+                if (n->osc.freq)
+                    n->state += *n->osc.freq;
                 if (n->osc.detune)
                     n->state += *n->osc.detune;
                 n->state =
@@ -631,7 +640,8 @@ q15_t picosynth_process(picosynth_t *s)
                  * where output is the filtered signal from the previous sample.
                  * This implements a simple recursive filter.
                  */
-                int32_t delta = *n->flt.in - n->out;
+                int32_t input_val = n->flt.in ? *n->flt.in : 0;
+                int32_t delta = input_val - n->out;
                 int64_t acc = (int64_t) n->flt.accum + delta;
                 if (acc > 0x7FFFFFFF)
                     acc = 0x7FFFFFFF;

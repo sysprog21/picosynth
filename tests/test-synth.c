@@ -310,6 +310,34 @@ static void test_voice_set_out(void)
     picosynth_destroy(s);
 }
 
+/* Test graphs with missing/null inputs */
+static void test_null_graph_inputs(void)
+{
+    picosynth_t *s = picosynth_create(1, 2);
+    TEST_ASSERT(s != NULL, "synth creation");
+
+    picosynth_voice_t *v = picosynth_get_voice(s, 0);
+    picosynth_node_t *osc = picosynth_voice_get_node(v, 0);
+    picosynth_node_t *hp = picosynth_voice_get_node(v, 1);
+
+    /* Intentionally leave freq/in pointers NULL to ensure null-safety */
+    picosynth_init_osc(osc, NULL, NULL, picosynth_wave_sine);
+    picosynth_init_hp(hp, NULL, NULL, Q15_MAX);
+    picosynth_voice_set_out(v, 1);
+
+    picosynth_note_on(s, 0, 60);
+
+    int non_zero = 0;
+    for (int i = 0; i < 64; i++) {
+        q15_t sample = picosynth_process(s);
+        if (sample != 0)
+            non_zero++;
+    }
+    TEST_ASSERT(non_zero == 0, "null graph inputs produce silence");
+
+    picosynth_destroy(s);
+}
+
 /* Test NULL pointer handling */
 static void test_null_safety(void)
 {
@@ -342,5 +370,6 @@ void test_synth_all(void)
     TEST_RUN(test_mixer);
     TEST_RUN(test_voice_freq_ptr);
     TEST_RUN(test_voice_set_out);
+    TEST_RUN(test_null_graph_inputs);
     TEST_RUN(test_null_safety);
 }
