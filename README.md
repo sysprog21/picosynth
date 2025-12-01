@@ -1,6 +1,6 @@
 # PicoSynth
 
-A lightweight software synthesizer designed for embedded systems and resource-constrained environments.
+A lightweight software synthesizer designed for resource-constrained environments.
 
 ## Features
 
@@ -11,11 +11,6 @@ A lightweight software synthesizer designed for embedded systems and resource-co
 - Waveform generators: sine, saw, square, triangle, noise
 - Low-pass and high-pass filters
 - Soft clipper for output limiting
-
-## Target Platform
-
-Designed for 32-bit microcontrollers with fast multiply, such as ARM Cortex-M0+.
-On an STM32G030 at 16MHz, it can run 2 voices with 4-5 nodes each at 12,500Hz sample rate.
 
 ## Architecture
 
@@ -48,7 +43,6 @@ make run
 ```
 
 You can select different melodies:
-
 ```shell
 make MELODY=twinkle run    # Play "Twinkle Twinkle"
 make list-melodies         # Show available melodies
@@ -57,11 +51,10 @@ make list-melodies         # Show available melodies
 ### Unit Tests
 
 Run the test suite to verify the synthesizer is working correctly:
-
 ```shell
 make check
 # Output: === Test Summary ===
-#         Passed: 624
+#         Passed: 626
 #         Failed: 0
 ```
 
