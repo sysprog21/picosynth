@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicoSynth</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>PicoSynth</h1>
+        <span class="subtitle">Lightweight Software Synthesizer</span>
+    </header>
+
+    <main>
+        <section class="keyboard-section">
+            <div class="keyboard" id="keyboard"></div>
+        </section>
+
+        <div class="panels">
+            <section class="panel controls-panel">
+                <h2>Controls</h2>
+                <div class="control-row">
+                    <label for="wave1">Wave 1</label>
+                    <select id="wave1" aria-label="Oscillator 1 waveform">
+                        <option value="0" selected>Sine</option>
+                        <option value="1">Triangle</option>
+                        <option value="2">Saw</option>
+                        <option value="3">Square</option>
+                        <option value="4">Noise</option>
+                    </select>
+                    <label for="wave2">Wave 2</label>
+                    <select id="wave2" aria-label="Oscillator 2 waveform">
+                        <option value="0">Sine</option>
+                        <option value="1" selected>Triangle</option>
+                        <option value="2">Saw</option>
+                        <option value="3">Square</option>
+                        <option value="4">Noise</option>
+                    </select>
+                    <label for="filter">Filter</label>
+                    <input type="range" id="filter" min="100" max="16384" value="5000" aria-label="Filter cutoff">
+                </div>
+            </section>
+
+            <section class="panel melody-panel">
+                <h2>Melody</h2>
+                <div class="melody-controls">
+                    <input type="file" id="file-input" accept=".txt" style="display:none">
+                    <button id="load-btn"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg> Load File</button>
+                    <button id="play-btn" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play</button>
+                    <button id="stop-btn" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 6h12v12H6z"/></svg> Stop</button>
+                    <button id="download-btn" disabled><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg> Download WAV</button>
+                </div>
+                <div class="examples"><!-- Built dynamically from assets/melodies/ --></div>
+                <pre id="melody-display"></pre>
+            </section>
+        </div>
+
+        <div id="status" role="status" aria-live="polite">Loading WebAssembly...</div>
+    </main>
+
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                document.dispatchEvent(new CustomEvent('wasmReady'));
+            }
+        };
+    </script>
+    <script src="picosynth.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

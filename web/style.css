@@ -1,0 +1,254 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --border: #0f3460;
+    --primary: #00d4ff;
+    --text: #e8e8e8;
+    --text-dim: #a0a0a0;
+    --success: #00ff88;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+header {
+    background: var(--surface);
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+}
+
+header h1 {
+    color: var(--primary);
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+header .subtitle {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Keyboard */
+.keyboard-section {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+}
+
+.keyboard {
+    display: flex;
+    justify-content: center;
+    height: 140px;
+    position: relative;
+}
+
+.key {
+    cursor: pointer;
+    transition: background 0.05s;
+    user-select: none;
+}
+
+.key.white {
+    width: 40px;
+    height: 100%;
+    background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+    border: 1px solid #999;
+    border-radius: 0 0 5px 5px;
+    position: relative;
+    z-index: 1;
+}
+
+.key.black {
+    width: 24px;
+    height: 60%;
+    background: linear-gradient(180deg, #444 0%, #111 100%);
+    border: 1px solid #000;
+    border-radius: 0 0 4px 4px;
+    position: absolute;
+    z-index: 2;
+    margin-left: -12px;
+}
+
+.key.white.active, .key.white:active {
+    background: var(--primary);
+}
+
+.key.black.active, .key.black:active {
+    background: var(--primary);
+}
+
+.key-label {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #666;
+    pointer-events: none;
+}
+
+.key-hint {
+    text-align: center;
+    margin-top: 12px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+}
+
+/* Panels */
+.panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 700px) {
+    .panels { grid-template-columns: 1fr; }
+}
+
+.panel {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+}
+
+.panel h2 {
+    color: var(--primary);
+    font-size: 1rem;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Controls */
+.control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.control-row label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
+.control-row select,
+.control-row input[type="range"] {
+    width: 120px;
+}
+
+select {
+    background: var(--border);
+    color: var(--text);
+    border: 1px solid #0a2040;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 0.85rem;
+}
+
+input[type="range"] {
+    accent-color: var(--primary);
+}
+
+/* Melody */
+.melody-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+button {
+    background: var(--border);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+button svg {
+    flex-shrink: 0;
+}
+
+button:hover:not(:disabled) {
+    background: var(--primary);
+    color: var(--bg);
+}
+
+button:focus-visible {
+    outline: 2px solid var(--success);
+    outline-offset: 2px;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.examples button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+}
+
+#melody-display {
+    background: #0d1421;
+    color: #88cc88;
+    padding: 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    height: 80px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+#melody-display:empty::before {
+    content: "No melody loaded";
+    color: var(--text-dim);
+}
+
+/* Status */
+#status {
+    text-align: center;
+    padding: 12px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+#status.ready { color: var(--success); }
+#status.error { color: #ff6b6b; }
+#status.playing { color: var(--primary); }

@@ -1,0 +1,36 @@
+# London Bridge Is Falling Down
+# Format: NOTE BEATS (4=quarter, 8=eighth, 3=dotted quarter, 2=half)
+
+# London Bridge is falling down
+G4 3
+A4 8
+G4 4
+F4 4
+E4 4
+F4 4
+G4 2
+
+# Falling down
+D4 4
+E4 4
+F4 2
+
+# Falling down
+E4 4
+F4 4
+G4 2
+
+# London Bridge is falling down
+G4 3
+A4 8
+G4 4
+F4 4
+E4 4
+F4 4
+G4 2
+
+# My fair lady
+D4 2
+G4 4
+E4 4
+C4 2

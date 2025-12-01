@@ -1,0 +1,20 @@
+# Build artifacts
+example
+output.wav
+melody.h
+
+# Emscripten/WASM build outputs
+*.wasm
+picosynth.js
+web/picosynth.js
+web/picosynth.wasm
+
+# Editor/IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
