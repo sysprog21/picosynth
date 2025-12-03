@@ -298,6 +298,11 @@ function parseMidiFile(buffer) {
     /* Sort events by time */
     noteEvents.sort((a, b) => a.time - b.time || (a.isOn ? -1 : 1));
 
+    console.log(`Total note events parsed: ${noteEvents.length}`);
+    if (noteEvents.length > 0) {
+        console.log('First 10 events:', noteEvents.slice(0, 10));
+    }
+
     /* Match note-on/off and build melody */
     const notes = [], beats = [];
     const active = new Map();
@@ -310,14 +315,18 @@ function parseMidiFile(buffer) {
             const start = active.get(evt.note);
             if (start !== undefined) {
                 const duration = evt.time - start;
-                const beatVal = Math.max(1, Math.round(duration * 4 / ticksPerBeat));
-                notes.push(evt.note);
-                beats.push(beatVal);
+                if (duration > 0) {
+                    const beatVal = Math.max(1, Math.round(duration * 4 / ticksPerBeat));
+                    notes.push(evt.note);
+                    beats.push(beatVal);
+                }
                 active.delete(evt.note);
             }
         }
     }
 
+    console.log(`Matched pairs: ${notes.length}`);
+    if (notes.length === 0) throw new Error(`No note pairs found in MIDI (parsed ${noteEvents.length} events, ticksPerBeat=${ticksPerBeat})`);
     return { notes, beats };
 }
 
@@ -404,7 +413,9 @@ document.getElementById('file-input').addEventListener('change', (e) => {
     if (isMidi) {
         reader.onload = (evt) => {
             try {
+                console.log(`Parsing MIDI file: ${file.name} (${evt.target.result.byteLength} bytes)`);
                 const { notes, beats } = parseMidiFile(evt.target.result);
+                console.log(`Successfully parsed: ${notes.length} notes`);
                 melodyNotes = notes;
                 melodyBeats = beats;
                 displayMelody();
@@ -412,6 +423,7 @@ document.getElementById('file-input').addEventListener('change', (e) => {
                 document.getElementById('download-btn').disabled = false;
                 setStatus(`Loaded MIDI: ${file.name} (${notes.length} notes)`, 'ready');
             } catch (err) {
+                console.error('MIDI parsing error:', err);
                 setStatus(`MIDI error: ${err.message}`, 'error');
             }
         };
@@ -424,21 +436,65 @@ document.getElementById('file-input').addEventListener('change', (e) => {
 
 /* Playback */
 function renderMelody() {
-    if (melodyNotes.length === 0) return null;
+    if (melodyNotes.length === 0) {
+        console.error('No melody notes loaded');
+        return null;
+    }
+    
+    console.log(`Rendering ${melodyNotes.length} notes with beats:`, melodyBeats);
+    
+    // Validate beats array
+    for (let i = 0; i < melodyBeats.length; i++) {
+        if (melodyBeats[i] <= 0 || melodyBeats[i] > 1000) {
+            console.warn(`Warning: beat[${i}] = ${melodyBeats[i]} (out of expected range)`);
+        }
+    }
 
     const notesPtr = Module._malloc(melodyNotes.length);
     const beatsPtr = Module._malloc(melodyBeats.length);
-    Module.HEAPU8.set(new Uint8Array(melodyNotes), notesPtr);
-    Module.HEAPU8.set(new Uint8Array(melodyBeats), beatsPtr);
+    
+    console.log(`Allocated notesPtr=${notesPtr.toString(16)}, beatsPtr=${beatsPtr.toString(16)}`);
+    
+    try {
+        Module.HEAPU8.set(new Uint8Array(melodyNotes), notesPtr);
+        Module.HEAPU8.set(new Uint8Array(melodyBeats), beatsPtr);
+        console.log('Copied note and beat data to WASM memory');
+    } catch (e) {
+        console.error('Error copying data to WASM:', e);
+        Module._free(notesPtr);
+        Module._free(beatsPtr);
+        return null;
+    }
 
     const outPtrPtr = Module._malloc(4);
-    const numSamples = Module._picosynth_wasm_render_melody(notesPtr, beatsPtr, melodyNotes.length, outPtrPtr);
+    console.log(`Calling picosynth_wasm_render_melody with ${melodyNotes.length} notes`);
+    
+    let numSamples = 0;
+    try {
+        numSamples = Module._picosynth_wasm_render_melody(notesPtr, beatsPtr, melodyNotes.length, outPtrPtr);
+    } catch (e) {
+        console.error('WASM render_melody threw exception:', e);
+        Module._free(notesPtr);
+        Module._free(beatsPtr);
+        Module._free(outPtrPtr);
+        return null;
+    }
+
+    console.log(`WASM render_melody returned: ${numSamples} samples`);
 
     let samples = null;
     if (numSamples > 0) {
-        const bufferPtr = Module.HEAP32[outPtrPtr >> 2];
-        samples = new Int16Array(Module.HEAP16.buffer, bufferPtr, numSamples).slice();
-        Module._free(bufferPtr);
+        try {
+            const bufferPtr = Module.HEAP32[outPtrPtr >> 2];
+            console.log(`Buffer pointer from WASM: 0x${bufferPtr.toString(16)}`);
+            samples = new Int16Array(Module.HEAP16.buffer, bufferPtr, numSamples).slice();
+            console.log(`Copied ${samples.length} samples from WASM buffer`);
+            Module._free(bufferPtr);
+        } catch (e) {
+            console.error('Error reading WASM buffer:', e);
+        }
+    } else {
+        console.error(`WASM returned 0 samples! Possible allocation failure.`);
     }
 
     Module._free(notesPtr);
@@ -451,12 +507,15 @@ function renderMelody() {
 document.getElementById('play-btn').addEventListener('click', () => {
     if (isPlaying || !wasmReady) return;
 
+    console.log(`Play button clicked. melodyNotes.length=${melodyNotes.length}`);
     initAudio();
     if (!audioCtx) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     const samples = renderMelody();
-    if (!samples) { setStatus('No melody', 'error'); return; }
+    console.log(`renderMelody returned: ${samples ? (samples.samples ? samples.samples.length : 'error object') : 'null'} samples`);
+    
+    if (!samples) {setStatus('picosynth_wasm_render_melody return 0', 'error'); return; }
 
     /* Convert to float */
     const float32 = new Float32Array(samples.length);
@@ -492,7 +551,18 @@ document.getElementById('stop-btn').addEventListener('click', () => {
 
 /* Download WAV */
 document.getElementById('download-btn').addEventListener('click', () => {
-    const samples = renderMelody();
+    const result = renderMelody();
+    
+    if (!result || result.error) {
+        if (result && result.error === 'MIDI file too long') {
+            setStatus('Input MIDI too long (>60 seconds)', 'error');
+        } else {
+            setStatus('Cannot download: no valid melody', 'error');
+        }
+        return;
+    }
+    
+    const samples = result;
     const sampleRate = Module._picosynth_wasm_get_sample_rate();
     const buffer = new ArrayBuffer(44 + samples.length * 2);
     const view = new DataView(buffer);
