@@ -12,6 +12,7 @@ extern void test_q15_all(void);
 extern void test_waveform_all(void);
 extern void test_envelope_all(void);
 extern void test_synth_all(void);
+extern void test_midi_all(void);
 
 int main(void)
 {
@@ -30,6 +31,9 @@ int main(void)
 
     printf("\n--- Synthesizer Core Tests ---\n");
     test_synth_all();
+
+    printf("\n--- MIDI Parser Tests ---\n");
+    test_midi_all();
 
     TEST_SUMMARY();
 

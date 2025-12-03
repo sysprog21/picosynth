@@ -13,7 +13,7 @@ EXAMPLE_TARGET = example
 TEST_DIR = tests
 TEST_SRCS = $(TEST_DIR)/driver.c $(TEST_DIR)/test-q15.c \
             $(TEST_DIR)/test-waveform.c $(TEST_DIR)/test-envelope.c \
-            $(TEST_DIR)/test-synth.c
+            $(TEST_DIR)/test-synth.c $(TEST_DIR)/test-midi.c
 TEST_TARGET = test_runner
 
 # Melody selection: set MELODY to change the song
@@ -22,8 +22,14 @@ MELODY ?= happy_birthday
 MELODY_SRC = web/assets/melodies/$(MELODY).txt
 MELODY_HDR = melody.h
 
-# Melody converter tool
+# Melody converter tools
 MIDI2C = tools/midi2c
+MIDIPARSE = tools/midiparse
+TXT2MIDI = tools/txt2midi
+
+# MIDI file parser source
+MIDI_SRC = src/midifile.c
+MIDI_HDR = include/midifile.h
 
 TARGET = example
 
@@ -48,6 +54,14 @@ all: $(TARGET)
 $(MIDI2C): tools/midi2c.c
 	$(CC) -Wall -Wextra -o $@ $<
 
+# Build the MIDI file parser tool
+$(MIDIPARSE): tools/midiparse.c $(MIDI_SRC) $(MIDI_HDR)
+	$(CC) $(CFLAGS) tools/midiparse.c $(MIDI_SRC) -o $@
+
+# Build the text-to-MIDI converter tool
+$(TXT2MIDI): tools/txt2midi.c
+	$(CC) -Wall -Wextra -o $@ $<
+
 # Generate melody.h from selected melody file
 $(MELODY_HDR): $(MELODY_SRC) $(MIDI2C)
 	$(MIDI2C) $(MELODY_SRC) > $@
@@ -56,8 +70,8 @@ $(TARGET): $(EXAMPLE_SRC) $(SRCS) $(HDRS) $(MELODY_HDR)
 	$(CC) $(CFLAGS) $(EXAMPLE_SRC) $(SRCS) -o $@ $(LDLIBS)
 
 # Build unit test runner
-$(TEST_TARGET): $(TEST_SRCS) $(SRCS) $(HDRS) $(TEST_DIR)/test.h
-	$(CC) $(CFLAGS) -I $(TEST_DIR) $(TEST_SRCS) $(SRCS) -o $@ $(LDLIBS)
+$(TEST_TARGET): $(TEST_SRCS) $(SRCS) $(MIDI_SRC) $(HDRS) $(MIDI_HDR) $(TEST_DIR)/test.h
+	$(CC) $(CFLAGS) -I $(TEST_DIR) $(TEST_SRCS) $(SRCS) $(MIDI_SRC) -o $@ $(LDLIBS)
 
 # Run the example program
 run: $(TARGET)
@@ -72,7 +86,7 @@ clean:
 	$(RM) $(TARGET) $(TEST_TARGET) output.wav $(MELODY_HDR)
 
 # Build tools (explicit target, also built automatically as dependency)
-tools: $(MIDI2C)
+tools: $(MIDI2C) $(MIDIPARSE) $(TXT2MIDI)
 
 # WebAssembly build
 wasm: $(WASM_OUT) copy-melodies
@@ -92,12 +106,12 @@ wasm-clean:
 
 # Remove all generated files
 distclean: clean wasm-clean
-	$(RM) $(MIDI2C)
+	$(RM) $(MIDI2C) $(MIDIPARSE) $(TXT2MIDI)
 
 # Local development server
 serve: wasm
 	@echo "Starting local server at http://127.0.0.1:8080"
-	@cd $(WASM_DIR) && python3 -m http.server 8080 --bind 127.0.0.1
+	@cd $(WASM_DIR) && python3 -c 'exec("""import http.server\nimport socketserver\nhandler = http.server.SimpleHTTPRequestHandler\nhttpd = socketserver.TCPServer(("127.0.0.1", 8080), handler)\nprint("Serving at http://127.0.0.1:8080")\nhttpd.serve_forever()""")'
 
 # List available melodies
 list-melodies:
@@ -109,4 +123,4 @@ list-melodies:
 
 # Format all C source and header files
 indent:
-	clang-format -i $(SRCS) $(HDRS) $(EXAMPLE_SRC) $(TEST_SRCS) $(TEST_DIR)/test.h $(WASM_DIR)/wasm.c tools/midi2c.c
+	clang-format -i $(SRCS) $(HDRS) $(MIDI_SRC) $(MIDI_HDR) $(EXAMPLE_SRC) $(TEST_SRCS) $(TEST_DIR)/test.h $(WASM_DIR)/wasm.c tools/midi2c.c tools/midiparse.c tools/txt2midi.c

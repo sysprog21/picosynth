@@ -203,6 +203,124 @@ function parseMelody(text) {
     return { notes, beats };
 }
 
+/* MIDI file parser (SMF format 0/1) */
+function parseMidiFile(buffer) {
+    const data = new DataView(buffer);
+    let pos = 0;
+
+    /* Read helpers */
+    const read32 = () => { const v = data.getUint32(pos); pos += 4; return v; };
+    const read16 = () => { const v = data.getUint16(pos); pos += 2; return v; };
+    const read8 = () => data.getUint8(pos++);
+    const readVLQ = () => {
+        let val = 0;
+        for (let i = 0; i < 4; i++) {
+            const b = read8();
+            val = (val << 7) | (b & 0x7F);
+            if ((b & 0x80) === 0) break;
+        }
+        return val;
+    };
+
+    /* Verify MThd header */
+    const magic = read32();
+    if (magic !== 0x4D546864) throw new Error('Not a MIDI file');
+    const headerLen = read32();
+    if (headerLen < 6) throw new Error('Invalid header');
+    const format = read16();
+    const ntracks = read16();
+    const division = read16();
+    if (format > 1) throw new Error('Unsupported MIDI format');
+    pos = 8 + headerLen;
+
+    /* Collect note events from all tracks */
+    const noteEvents = [];
+    let tempo = 500000; /* default: 120 BPM */
+
+    for (let t = 0; t < ntracks; t++) {
+        if (read32() !== 0x4D54726B) throw new Error('Invalid track header');
+        const trackLen = read32();
+        const trackEnd = pos + trackLen;
+        let absTime = 0;
+        let runningStatus = 0;
+
+        while (pos < trackEnd) {
+            const delta = readVLQ();
+            absTime += delta;
+
+            let status = read8();
+            if ((status & 0x80) === 0) {
+                /* Running status */
+                pos--;
+                status = runningStatus;
+            } else if (status < 0xF0) {
+                runningStatus = status;
+            }
+
+            const type = status & 0xF0;
+            const channel = status & 0x0F;
+
+            if (status === 0xFF) {
+                /* Meta event */
+                const metaType = read8();
+                const metaLen = readVLQ();
+                if (metaType === 0x51 && metaLen === 3) {
+                    /* Tempo */
+                    tempo = (read8() << 16) | (read8() << 8) | read8();
+                } else if (metaType === 0x2F) {
+                    /* End of track */
+                    break;
+                } else {
+                    pos += metaLen;
+                }
+            } else if (status === 0xF0 || status === 0xF7) {
+                /* SysEx */
+                const len = readVLQ();
+                pos += len;
+                runningStatus = 0;
+            } else if (type === 0x90 || type === 0x80) {
+                /* Note on/off */
+                const note = read8();
+                const velocity = read8();
+                const isOn = (type === 0x90 && velocity > 0);
+                noteEvents.push({ time: absTime, note, velocity, isOn, channel });
+            } else if (type === 0xC0 || type === 0xD0) {
+                /* Program change, channel pressure (1 byte) */
+                read8();
+            } else {
+                /* Other channel messages (2 bytes) */
+                read8(); read8();
+            }
+        }
+        pos = trackEnd;
+    }
+
+    /* Sort events by time */
+    noteEvents.sort((a, b) => a.time - b.time || (a.isOn ? -1 : 1));
+
+    /* Match note-on/off and build melody */
+    const notes = [], beats = [];
+    const active = new Map();
+    const ticksPerBeat = division;
+
+    for (const evt of noteEvents) {
+        if (evt.isOn) {
+            active.set(evt.note, evt.time);
+        } else {
+            const start = active.get(evt.note);
+            if (start !== undefined) {
+                const duration = evt.time - start;
+                const beatVal = Math.max(1, Math.round(duration * 4 / ticksPerBeat));
+                notes.push(evt.note);
+                beats.push(beatVal);
+                active.delete(evt.note);
+            }
+        }
+    }
+
+    return { notes, beats };
+}
+
 function displayMelody() {
     const el = document.getElementById('melody-display');
     if (melodyNotes.length === 0) { el.textContent = ''; return; }
@@ -276,10 +394,32 @@ document.getElementById('load-btn').addEventListener('click', () => {
 document.getElementById('file-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    const isMidi = file.name.toLowerCase().endsWith('.mid') ||
+                   file.name.toLowerCase().endsWith('.midi');
+
     const reader = new FileReader();
-    reader.onload = (evt) => loadMelody(evt.target.result, file.name);
     reader.onerror = () => setStatus('Error reading file', 'error');
-    reader.readAsText(file);
+
+    if (isMidi) {
+        reader.onload = (evt) => {
+            try {
+                const { notes, beats } = parseMidiFile(evt.target.result);
+                melodyNotes = notes;
+                melodyBeats = beats;
+                displayMelody();
+                document.getElementById('play-btn').disabled = false;
+                document.getElementById('download-btn').disabled = false;
+                setStatus(`Loaded MIDI: ${file.name} (${notes.length} notes)`, 'ready');
+            } catch (err) {
+                setStatus(`MIDI error: ${err.message}`, 'error');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        reader.onload = (evt) => loadMelody(evt.target.result, file.name);
+        reader.readAsText(file);
+    }
 });
 
 /* Playback */
