@@ -312,13 +312,13 @@ function parseMidiFile(buffer) {
             active.set(evt.note, evt.time);
         } else {
             const start = active.get(evt.note);
-            if (start !== undefined) {
+            if (start !== undefined && evt.time >= start) {
                 const duration = evt.time - start;
                 const beatVal = Math.max(1, Math.round(duration * 4 / ticksPerBeat));
                 notes.push(evt.note);
                 beats.push(beatVal);
-                active.delete(evt.note);
             }
+            active.delete(evt.note);
         }
     }
 
