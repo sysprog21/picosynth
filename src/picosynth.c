@@ -6,9 +6,16 @@
 #include "dsp-math.h"
 #include "picosynth.h"
 
-/* Envelope state: bit 31 = decay mode, bits 0-30 = value */
-#define ENVELOPE_STATE_MODE_BIT 0x80000000u
-#define ENVELOPE_STATE_VALUE_MASK 0x7FFFFFFF
+/* Envelope state: bits 30-31 = mode, bits 0-29 = value
+ * Mode 0 (0x00): Attack - ramp up to peak
+ * Mode 1 (0x40): Hold - maintain peak level
+ * Mode 2 (0x80): Decay/Sustain - exponential decay to sustain
+ */
+#define ENVELOPE_MODE_ATTACK 0x00000000u
+#define ENVELOPE_MODE_HOLD 0x40000000u
+#define ENVELOPE_MODE_DECAY 0x80000000u
+#define ENVELOPE_MODE_MASK 0xC0000000u
+#define ENVELOPE_STATE_VALUE_MASK 0x3FFFFFFF
 
 /* DC blocker coefficient: alpha ≈ 0.995 in Q15 = 32604
  * Removes DC offset from waveshaping with ~4 cycles/sample overhead.
@@ -67,6 +74,7 @@ static void voice_note_on(picosynth_voice_t *v, uint8_t note)
         if (n->type == PICOSYNTH_NODE_ENV) {
             n->env.block_counter = 0;
             n->env.block_rate = 0;
+            n->env.hold_counter = 0;
         }
     }
 }
@@ -403,33 +411,32 @@ void picosynth_init_osc(picosynth_node_t *n,
 
 void picosynth_init_env(picosynth_node_t *n,
                         const q15_t *gain,
-                        int32_t attack,
-                        int32_t decay,
-                        q15_t sustain,
-                        int32_t release)
+                        const picosynth_env_params_t *params)
 {
     memset(n, 0, sizeof(picosynth_node_t));
     n->gain = gain;
     n->type = PICOSYNTH_NODE_ENV;
-    n->env.attack = attack;
-    n->env.decay = decay;
-    n->env.sustain = sustain;
-    n->env.release = release;
+    n->env.attack = params->attack;
+    n->env.hold = params->hold;
+    n->env.decay = params->decay;
+    n->env.sustain = params->sustain;
+    n->env.release = params->release;
+    n->env.hold_counter = 0;
     env_update_exp_coeffs(&n->env);
 }
 
 void picosynth_init_env_ms(picosynth_node_t *n,
                            const q15_t *gain,
-                           uint16_t atk_ms,
-                           uint16_t dec_ms,
-                           uint8_t sus_pct,
-                           uint16_t rel_ms)
+                           const picosynth_env_ms_params_t *params)
 {
-    int32_t atk = (int32_t) PICOSYNTH_ENV_RATE_FROM_MS(atk_ms);
-    int32_t dec = (int32_t) PICOSYNTH_ENV_RATE_FROM_MS(dec_ms);
-    q15_t sus = (q15_t) (((int32_t) sus_pct * Q15_MAX) / 100);
-    int32_t rel = (int32_t) PICOSYNTH_ENV_RATE_FROM_MS(rel_ms);
-    picosynth_init_env(n, gain, atk, dec, sus, rel);
+    picosynth_env_params_t p = {
+        .attack = (int32_t) PICOSYNTH_ENV_RATE_FROM_MS(params->atk_ms),
+        .hold = (int32_t) PICOSYNTH_MS(params->hold_ms),
+        .decay = (int32_t) PICOSYNTH_ENV_RATE_FROM_MS(params->dec_ms),
+        .sustain = (q15_t) (((int32_t) params->sus_pct * Q15_MAX) / 100),
+        .release = (int32_t) PICOSYNTH_ENV_RATE_FROM_MS(params->rel_ms),
+    };
+    picosynth_init_env(n, gain, &p);
 }
 
 void picosynth_init_lp(picosynth_node_t *n,
@@ -712,29 +719,30 @@ q15_t picosynth_process(picosynth_t *s)
                     (int32_t) (((uint32_t) n->state) & (uint32_t) Q15_MAX);
                 break;
             case PICOSYNTH_NODE_ENV: {
-                /* Block-based envelope: compute rate at block boundaries,
-                 * check for phase transitions per-sample. */
+                /* Block-based AHDSR envelope: compute rate at block
+                 * boundaries, check for phase transitions per-sample. */
+                uint32_t mode = ((uint32_t) n->state) & ENVELOPE_MODE_MASK;
 
                 /* Recompute rate at block boundary */
                 if (n->env.block_counter == 0) {
                     n->env.block_counter = PICOSYNTH_BLOCK_SIZE;
                     if (!v->gate) {
                         n->env.block_rate = -n->env.release; /* Informational */
-                    } else if (((uint32_t) n->state) &
-                               ENVELOPE_STATE_MODE_BIT) {
+                    } else if (mode == ENVELOPE_MODE_DECAY) {
                         n->env.block_rate = -n->env.decay; /* Informational */
+                    } else if (mode == ENVELOPE_MODE_HOLD) {
+                        n->env.block_rate = 0; /* Hold at peak */
                     } else {
                         n->env.block_rate = n->env.attack;
                     }
                 }
                 n->env.block_counter--;
 
-                /* Apply rate */
+                /* Apply rate based on mode */
                 int32_t val = n->state & ENVELOPE_STATE_VALUE_MASK;
                 if (v->gate) {
-                    uint32_t mode =
-                        ((uint32_t) n->state) & ENVELOPE_STATE_MODE_BIT;
-                    if (mode) {
+                    if (mode == ENVELOPE_MODE_DECAY) {
+                        /* Decay/Sustain phase */
                         q15_t sus_abs = n->env.sustain < 0 ? -n->env.sustain
                                                            : n->env.sustain;
                         int32_t sus_level = sus_abs << 4;
@@ -746,24 +754,40 @@ q15_t picosynth_process(picosynth_t *s)
                                        15);
                         if (val < sus_level)
                             val = sus_level;
+                    } else if (mode == ENVELOPE_MODE_HOLD) {
+                        /* Hold phase: maintain peak, count down */
+                        val = (int32_t) Q15_MAX << 4; /* Stay at peak */
+                        if (n->env.hold_counter > 0)
+                            n->env.hold_counter--;
+                        if (n->env.hold_counter == 0) {
+                            /* Transition to decay mode */
+                            mode = ENVELOPE_MODE_DECAY;
+                            n->env.block_counter = 0;
+                        }
                     } else {
-                        /* Attack: check for transition to decay */
+                        /* Attack phase: ramp up to peak */
                         val += n->env.block_rate;
                         if (val >= (int32_t) Q15_MAX << 4) {
                             val = (int32_t) Q15_MAX << 4;
-                            mode = ENVELOPE_STATE_MODE_BIT;
+                            /* Check if hold phase is configured */
+                            if (n->env.hold > 0) {
+                                mode = ENVELOPE_MODE_HOLD;
+                                n->env.hold_counter = n->env.hold;
+                            } else {
+                                mode = ENVELOPE_MODE_DECAY;
+                            }
                             /* Force rate recalculation next sample */
                             n->env.block_counter = 0;
                         }
                     }
                     n->state = (int32_t) (((uint32_t) val) | mode);
                 } else {
-                    /* Exponential release */
+                    /* Exponential release (mode cleared) */
                     val = (int32_t) (((int64_t) val * n->env.release_coeff) >>
                                      15);
                     if (val < 16)
                         val = 0;
-                    n->state = val;
+                    n->state = val; /* mode bits clear during release */
                 }
                 break;
             }

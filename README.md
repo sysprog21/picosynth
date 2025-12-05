@@ -76,7 +76,10 @@ picosynth_node_t *env = picosynth_voice_get_node(v, 0);
 picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
 /* Initialize nodes */
-picosynth_init_env(env, NULL, 5000, 500, Q15_MAX/2, 500);
+picosynth_init_env(env, NULL,
+    &(picosynth_env_params_t){.attack=5000, .decay=500, .sustain=Q15_MAX/2,
+                              .release=500,
+                             });
 picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                    picosynth_wave_sine);
 picosynth_voice_set_out(v, 1);

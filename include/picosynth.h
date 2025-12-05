@@ -11,7 +11,10 @@
  *   picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
  *   picosynth_node_t *flt = picosynth_voice_get_node(v, 2);
  *
- *   picosynth_init_env_ms(env, NULL, 10, 100, 80, 50);
+ *   picosynth_init_env_ms(env, NULL,
+ *       &(picosynth_env_ms_params_t){.atk_ms=10, .dec_ms=100,
+ *                                    .sus_pct=80, .rel_ms=50,
+ *                                   });
  *   picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
  *                      picosynth_wave_sine);
  *   picosynth_init_lp(flt, NULL, &osc->out, 5000);
@@ -81,6 +84,17 @@ static inline q15_t q15_sat(int32_t x)
 /* Waveform generator function pointer */
 typedef q15_t (*picosynth_wave_func_t)(q15_t phase);
 
+/* AHDSR envelope parameters for initialization.
+ * Using a struct avoids long parameter lists and enables named initialization.
+ */
+typedef struct {
+    int32_t attack;  /* Attack rate (higher = faster attack) */
+    int32_t hold;    /* Hold duration in samples (0 = no hold) */
+    int32_t decay;   /* Decay rate (higher = faster decay) */
+    q15_t sustain;   /* Sustain level (negative inverts output) */
+    int32_t release; /* Release rate (higher = faster release) */
+} picosynth_env_params_t;
+
 /* Oscillator state */
 typedef struct {
     const q15_t *freq;          /* Phase increment (frequency control) */
@@ -88,11 +102,12 @@ typedef struct {
     picosynth_wave_func_t wave; /* Waveform generator (phase -> sample) */
 } picosynth_osc_t;
 
-/* ADSR envelope state. Rates are step values scaled <<4 internally.
- * Use synth_init_env_ms().
+/* AHDSR envelope state (Attack-Hold-Decay-Sustain-Release).
+ * Rates are step values scaled <<4 internally. Use synth_init_env_ms().
  */
 typedef struct {
     int32_t attack;      /* Ramp-up rate */
+    int32_t hold;        /* Hold duration in samples (at peak before decay) */
     int32_t decay;       /* Ramp-down rate to sustain */
     q15_t sustain;       /* Hold level (negative inverts output) */
     int32_t release;     /* Ramp-down rate after note-off */
@@ -101,6 +116,7 @@ typedef struct {
     /* Block processing state (computed at block boundaries) */
     int32_t block_rate;    /* Current per-sample rate */
     uint8_t block_counter; /* Samples until next rate computation */
+    int32_t hold_counter;  /* Remaining hold samples (runtime state) */
 } picosynth_env_t;
 
 /* Single-pole filter state */
@@ -197,21 +213,29 @@ void picosynth_init_osc(picosynth_node_t *n,
                         const q15_t *freq,
                         picosynth_wave_func_t wave);
 
-/* Initialize envelope node (rates as increments per sample, scaled) */
+/* Initialize AHDSR envelope node with parameter struct.
+ * @params: Pointer to envelope parameters (attack, hold, decay, sustain,
+ * release). Rates are increments per sample, scaled <<4 internally.
+ */
 void picosynth_init_env(picosynth_node_t *n,
                         const q15_t *gain,
-                        int32_t attack,
-                        int32_t decay,
-                        q15_t sustain,
-                        int32_t release);
+                        const picosynth_env_params_t *params);
 
-/* Initialize envelope with millisecond timings and percentage sustain */
+/* Millisecond-based envelope parameters for picosynth_init_env_ms(). */
+typedef struct {
+    uint16_t atk_ms;  /* Attack time in milliseconds */
+    uint16_t hold_ms; /* Hold time in milliseconds (0 = no hold) */
+    uint16_t dec_ms;  /* Decay time in milliseconds */
+    uint8_t sus_pct;  /* Sustain level as percentage (0-100) */
+    uint16_t rel_ms;  /* Release time in milliseconds */
+} picosynth_env_ms_params_t;
+
+/* Initialize envelope with millisecond timings and percentage sustain.
+ * Converts timing parameters to internal rate values.
+ */
 void picosynth_init_env_ms(picosynth_node_t *n,
                            const q15_t *gain,
-                           uint16_t atk_ms,
-                           uint16_t dec_ms,
-                           uint8_t sus_pct,
-                           uint16_t rel_ms);
+                           const picosynth_env_ms_params_t *params);
 
 /* Initialize low-pass filter node */
 void picosynth_init_lp(picosynth_node_t *n,

@@ -106,7 +106,14 @@ static void test_note_on_off(void)
     picosynth_node_t *env = picosynth_voice_get_node(v, 0);
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
-    picosynth_init_env(env, NULL, 5000, 500, Q15_MAX / 2, 500);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX / 2,
+                           .release = 500,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -141,7 +148,14 @@ static void test_oscillator_phase(void)
     picosynth_node_t *env = picosynth_voice_get_node(v, 0);
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
-    picosynth_init_env(env, NULL, 30000, 500, Q15_MAX, 500);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 30000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX,
+                           .release = 500,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -176,7 +190,14 @@ static void test_filter_init(void)
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
     picosynth_node_t *flt = picosynth_voice_get_node(v, 2);
 
-    picosynth_init_env(env, NULL, 5000, 500, Q15_MAX / 2, 500);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX / 2,
+                           .release = 500,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_saw);
     picosynth_init_lp(flt, NULL, &osc->out, 3000);
@@ -207,7 +228,14 @@ static void test_filter_hp(void)
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
     picosynth_node_t *flt = picosynth_voice_get_node(v, 2);
 
-    picosynth_init_env(env, NULL, 5000, 500, Q15_MAX / 2, 500);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX / 2,
+                           .release = 500,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_saw);
     picosynth_init_hp(flt, NULL, &osc->out, 3000);
@@ -239,7 +267,14 @@ static void test_mixer(void)
     picosynth_node_t *osc2 = picosynth_voice_get_node(v, 2);
     picosynth_node_t *mix = picosynth_voice_get_node(v, 3);
 
-    picosynth_init_env(env, NULL, 30000, 500, Q15_MAX, 500);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 30000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX,
+                           .release = 500,
+                       });
     picosynth_init_osc(osc1, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_init_osc(osc2, &env->out, picosynth_voice_freq_ptr(v),
@@ -290,7 +325,14 @@ static void test_voice_set_out(void)
     picosynth_node_t *env = picosynth_voice_get_node(v, 0);
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
-    picosynth_init_env(env, NULL, 30000, 500, Q15_MAX, 500);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 30000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX,
+                           .release = 500,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
 

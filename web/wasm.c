@@ -104,8 +104,14 @@ static void init_piano_voices(void)
     picosynth_node_t *v0_env = picosynth_voice_get_node(v, 1);
     picosynth_node_t *v0_osc = picosynth_voice_get_node(v, 2);
 
-    picosynth_init_env(v0_env, NULL, 10000, 60, (q15_t) (Q15_MAX * 15 / 100),
-                       40);
+    picosynth_init_env(v0_env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 10000,
+                           .hold = 0,
+                           .decay = 60,
+                           .sustain = (q15_t) (Q15_MAX * 15 / 100),
+                           .release = 40,
+                       });
     picosynth_init_osc(v0_osc, &v0_env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_init_svf_lp(v0_flt, NULL, &v0_osc->out, picosynth_svf_freq(1200),
@@ -122,14 +128,26 @@ static void init_piano_voices(void)
     picosynth_node_t *v1_osc2 = picosynth_voice_get_node(v, 4);
     picosynth_node_t *v1_mix = picosynth_voice_get_node(v, 5);
 
-    picosynth_init_env(v1_env1, NULL, 8000, 150, (q15_t) (Q15_MAX * 8 / 100),
-                       50);
+    picosynth_init_env(v1_env1, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 8000,
+                           .hold = 0,
+                           .decay = 150,
+                           .sustain = (q15_t) (Q15_MAX * 8 / 100),
+                           .release = 50,
+                       });
     picosynth_init_osc(v1_osc1, &v1_env1->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     v1_osc1->osc.detune = &partial2_offset;
 
-    picosynth_init_env(v1_env2, NULL, 7000, 300, (q15_t) (Q15_MAX * 4 / 100),
-                       40);
+    picosynth_init_env(v1_env2, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 7000,
+                           .hold = 0,
+                           .decay = 300,
+                           .sustain = (q15_t) (Q15_MAX * 4 / 100),
+                           .release = 40,
+                       });
     picosynth_init_osc(v1_osc2, &v1_env2->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     v1_osc2->osc.detune = &partial3_offset;
@@ -146,8 +164,14 @@ static void init_piano_voices(void)
     picosynth_node_t *v2_env = picosynth_voice_get_node(v, 1);
     picosynth_node_t *v2_osc = picosynth_voice_get_node(v, 2);
 
-    picosynth_init_env(v2_env, NULL, 5000, 800, (q15_t) (Q15_MAX * 1 / 100),
-                       20);
+    picosynth_init_env(v2_env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000,
+                           .hold = 0,
+                           .decay = 800,
+                           .sustain = (q15_t) (Q15_MAX * 1 / 100),
+                           .release = 20,
+                       });
     picosynth_init_osc(v2_osc, &v2_env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_init_svf_lp(v2_flt, NULL, &v2_osc->out, picosynth_svf_freq(1500),
@@ -161,7 +185,14 @@ static void init_piano_voices(void)
     picosynth_node_t *v3_noise = picosynth_voice_get_node(v, 2);
     picosynth_node_t *v3_hp = picosynth_voice_get_node(v, 3);
 
-    picosynth_init_env(v3_env, NULL, 8000, 6000, 0, 50);
+    picosynth_init_env(v3_env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 8000,
+                           .hold = 0,
+                           .decay = 6000,
+                           .sustain = 0,
+                           .release = 50,
+                       });
     picosynth_init_osc(v3_noise, &v3_env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_noise);
     picosynth_init_svf_hp(v3_hp, NULL, &v3_noise->out, picosynth_svf_freq(200),

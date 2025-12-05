@@ -155,11 +155,14 @@ int main(void)
     /* Fundamental envelope: VERY slow decay for sustained body
      * Real piano fundamental sustains for seconds
      */
-    picosynth_init_env(
-        v0_env, NULL, 10000,          /* attack - smooth onset */
-        60,                           /* decay - VERY slow (sustains long) */
-        (q15_t) (Q15_MAX * 15 / 100), /* sustain (15%) - strong body */
-        40);                          /* release - gentle fade */
+    picosynth_init_env(v0_env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 10000, /* smooth onset */
+                           .hold = 0,       /* none (immediate decay) */
+                           .decay = 60,     /* VERY slow (sustains long) */
+                           .sustain = (q15_t) (Q15_MAX * 15 / 100), /* 15% */
+                           .release = 40, /* gentle fade */
+                       });
 
     /* Pure sine at fundamental frequency */
     picosynth_init_osc(v0_osc, &v0_env->out, picosynth_voice_freq_ptr(v),
@@ -184,10 +187,14 @@ int main(void)
     picosynth_node_t *v1_mix = picosynth_voice_get_node(v, 5);
 
     /* 2nd partial envelope: medium decay (faster than fundamental) */
-    picosynth_init_env(v1_env1, NULL, 8000,         /* attack */
-                       150,                         /* decay - MEDIUM rate */
-                       (q15_t) (Q15_MAX * 8 / 100), /* sustain (8%) */
-                       50);                         /* release */
+    picosynth_init_env(v1_env1, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 8000,
+                           .hold = 0,
+                           .decay = 150, /* MEDIUM rate */
+                           .sustain = (q15_t) (Q15_MAX * 8 / 100), /* 8% */
+                           .release = 50,
+                       });
 
     /* 2nd partial: sine at 2*base_freq with inharmonicity stretch */
     picosynth_init_osc(v1_osc1, &v1_env1->out, picosynth_voice_freq_ptr(v),
@@ -195,10 +202,14 @@ int main(void)
     v1_osc1->osc.detune = &partial2_offset; /* offset = f1, so total = 2*f1 */
 
     /* 3rd partial envelope: slightly faster decay than 2nd */
-    picosynth_init_env(v1_env2, NULL, 7000, /* attack */
-                       300, /* decay - faster than 2nd partial */
-                       (q15_t) (Q15_MAX * 4 / 100), /* sustain (4%) */
-                       40);                         /* release */
+    picosynth_init_env(v1_env2, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 7000,
+                           .hold = 0,
+                           .decay = 300, /* faster than 2nd partial */
+                           .sustain = (q15_t) (Q15_MAX * 4 / 100), /* 4% */
+                           .release = 40,
+                       });
 
     /* 3rd partial: sine at 3*base_freq with inharmonicity stretch */
     picosynth_init_osc(v1_osc2, &v1_env2->out, picosynth_voice_freq_ptr(v),
@@ -225,11 +236,14 @@ int main(void)
     /* Upper partials envelope: FAST decay, LOW level
      * Subtle contribution that fades quickly
      */
-    picosynth_init_env(
-        v2_env, NULL, 5000,          /* attack - soft onset */
-        800,                         /* decay - fast fade */
-        (q15_t) (Q15_MAX * 1 / 100), /* sustain (1%) - nearly silent */
-        20);                         /* release - quick */
+    picosynth_init_env(v2_env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000, /* soft onset */
+                           .hold = 0,
+                           .decay = 800, /* fast fade */
+                           .sustain = (q15_t) (Q15_MAX * 1 / 100), /* 1% */
+                           .release = 20,                          /* quick */
+                       });
 
     /* Sine for clean sound - no harsh harmonics */
     picosynth_init_osc(v2_osc, &v2_env->out, picosynth_voice_freq_ptr(v),
@@ -253,10 +267,14 @@ int main(void)
     /* Hammer noise: very subtle, almost imperceptible
      * Just adds slight "thump" texture, not harsh attack
      */
-    picosynth_init_env(v3_env, NULL, 8000, /* attack - soft */
-                       6000,               /* decay - very fast */
-                       0,                  /* sustain - none */
-                       50);                /* release */
+    picosynth_init_env(v3_env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 8000, /* soft */
+                           .hold = 0,
+                           .decay = 6000, /* very fast */
+                           .sustain = 0,  /* none */
+                           .release = 50,
+                       });
 
     /* White noise source */
     picosynth_init_osc(v3_noise, &v3_env->out, picosynth_voice_freq_ptr(v),

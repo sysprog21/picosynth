@@ -13,7 +13,14 @@ static void test_envelope_attack(void)
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
     /* Fast attack envelope */
-    picosynth_init_env(env, NULL, 5000, 100, Q15_MAX / 2, 100);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000,
+                           .hold = 0,
+                           .decay = 100,
+                           .sustain = Q15_MAX / 2,
+                           .release = 100,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -49,7 +56,14 @@ static void test_envelope_decay(void)
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
     /* Very fast attack, slower decay, 50% sustain */
-    picosynth_init_env(env, NULL, 30000, 500, Q15_MAX / 2, 100);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 30000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX / 2,
+                           .release = 100,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -89,7 +103,14 @@ static void test_envelope_release(void)
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
     /* Fast attack, high sustain, slow release */
-    picosynth_init_env(env, NULL, 30000, 500, Q15_MAX * 8 / 10, 200);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 30000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX * 8 / 10,
+                           .release = 200,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -133,7 +154,14 @@ static void test_envelope_block_rate(void)
     picosynth_node_t *env = picosynth_voice_get_node(v, 0);
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
-    picosynth_init_env(env, NULL, 1000, 100, Q15_MAX / 2, 100);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 1000,
+                           .hold = 0,
+                           .decay = 100,
+                           .sustain = Q15_MAX / 2,
+                           .release = 100,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -164,7 +192,14 @@ static void test_envelope_immediate_release(void)
     picosynth_node_t *env = picosynth_voice_get_node(v, 0);
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
-    picosynth_init_env(env, NULL, 5000, 500, Q15_MAX / 2, 500);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = Q15_MAX / 2,
+                           .release = 500,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -202,7 +237,14 @@ static void test_envelope_negative_sustain(void)
     picosynth_node_t *osc = picosynth_voice_get_node(v, 1);
 
     /* Negative sustain for inverted envelope */
-    picosynth_init_env(env, NULL, 5000, 500, -Q15_MAX / 2, 100);
+    picosynth_init_env(env, NULL,
+                       &(picosynth_env_params_t) {
+                           .attack = 5000,
+                           .hold = 0,
+                           .decay = 500,
+                           .sustain = -Q15_MAX / 2,
+                           .release = 100,
+                       });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
@@ -231,7 +273,14 @@ static void test_envelope_init_ms(void)
 
     /* Initialize with ms timing: 10ms attack, 100ms decay, 80% sustain, 50ms
      * release */
-    picosynth_init_env_ms(env, NULL, 10, 100, 80, 50);
+    picosynth_init_env_ms(env, NULL,
+                          &(picosynth_env_ms_params_t) {
+                              .atk_ms = 10,
+                              .hold_ms = 0,
+                              .dec_ms = 100,
+                              .sus_pct = 80,
+                              .rel_ms = 50,
+                          });
     picosynth_init_osc(osc, &env->out, picosynth_voice_freq_ptr(v),
                        picosynth_wave_sine);
     picosynth_voice_set_out(v, 1);
