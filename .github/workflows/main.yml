@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 10
 
     env:
-      CLANG_FORMAT_VERSION: 18
+      CLANG_FORMAT_VERSION: 21
 
     steps:
       - name: Checkout
@@ -30,6 +30,8 @@ jobs:
 
       - name: Install linting tools
         run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo add-apt-repository -y "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-${{ env.CLANG_FORMAT_VERSION }} main"
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends clang-format-${{ env.CLANG_FORMAT_VERSION }} shfmt
 

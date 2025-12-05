@@ -6,7 +6,7 @@ ret=0
 
 # Check C/C++ files with clang-format
 while IFS= read -r -d '' file; do
-    clang-format-18 -n --Werror "${file}" || ret=1
+    clang-format-21 -n --Werror "${file}" || ret=1
 done < <(git ls-files -z '*.c' '*.cpp' '*.h' ':!:*/submodule/*')
 
 # Check shell scripts with shfmt
