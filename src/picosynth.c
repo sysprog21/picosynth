@@ -10,6 +10,11 @@
 #define ENVELOPE_STATE_MODE_BIT 0x80000000u
 #define ENVELOPE_STATE_VALUE_MASK 0x7FFFFFFF
 
+/* DC blocker coefficient: alpha ≈ 0.995 in Q15 = 32604
+ * Removes DC offset from waveshaping with ~4 cycles/sample overhead.
+ */
+#define DC_BLOCK_ALPHA 32604
+
 /* Opaque type definitions */
 struct picosynth_voice {
     uint8_t note;            /* Current MIDI note */
@@ -25,6 +30,8 @@ struct picosynth {
     picosynth_voice_t *voices;
     uint8_t num_voices;
     uint16_t voice_enable_mask; /* Bit N = voice N active */
+    /* DC blocker state (placed after main mixer, before soft clipper) */
+    int32_t dc_x_prev, dc_y_prev; /* Previous input, output */
 };
 
 /* LFSR seed for noise generator.
@@ -868,7 +875,27 @@ q15_t picosynth_process(picosynth_t *s)
         q15_t gain = Q15_MAX / s->num_voices;
         out = (int32_t) (((int64_t) out * gain) >> 15);
     }
-    return soft_clip(out);
+
+    /* DC blocker: y[n] = x[n] - x[n-1] + alpha * y[n-1]
+     * Removes DC offset introduced by waveshaping and asymmetric waveforms.
+     * Uses int64_t to prevent overflow, clamps state. No rounding on feedback
+     * (truncation ensures full decay to zero, rounding leaves residual DC).
+     */
+    int64_t delta = (int64_t) out - (int64_t) s->dc_x_prev;
+    int64_t fb = ((int64_t) DC_BLOCK_ALPHA * (int64_t) s->dc_y_prev) >> 15;
+    int64_t acc = delta + fb;
+
+    /* Clamp to int32 to keep state sane for the next sample */
+    if (acc > INT32_MAX)
+        acc = INT32_MAX;
+    else if (acc < INT32_MIN)
+        acc = INT32_MIN;
+
+    int32_t dc_out = (int32_t) acc;
+    s->dc_x_prev = out;
+    s->dc_y_prev = dc_out;
+
+    return soft_clip(dc_out);
 }
 
 q15_t picosynth_wave_saw(q15_t phase)
